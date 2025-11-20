@@ -4,8 +4,9 @@
  * Manual controls for adjusting GPS position parameters
  */
 
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { GPSPosition } from '../types/gps';
+import { updatePosition } from '../services/gpsApi';
 
 interface PositionControlProps {
   position: GPSPosition;
@@ -18,9 +19,86 @@ export default function PositionControl({
   onPositionChange,
   disabled = false,
 }: PositionControlProps) {
+  const [isFlying, setIsFlying] = useState(false);
+  const flightIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
   const handleChange = (field: keyof GPSPosition, value: number) => {
     onPositionChange({ [field]: value });
   };
+
+  const handleFlyToggle = () => {
+    setIsFlying((prev) => !prev);
+  };
+
+  useEffect(() => {
+    if (isFlying) {
+      flightIntervalRef.current = setInterval(() => {
+        // Earth radius in meters
+        const R = 6378137;
+        const { latitude, longitude, altitude, heading, groundSpeed, verticalSpeed } = position;
+
+        // Time interval in seconds
+        const dt = 1;
+
+        // --- Horizontal Movement ---
+        const groundSpeedMs = groundSpeed * 0.514444; // knots to m/s
+        const distance = groundSpeedMs * dt;
+        const brng = (heading * Math.PI) / 180; // heading to radians
+        const lat1 = (latitude * Math.PI) / 180;
+        const lon1 = (longitude * Math.PI) / 180;
+
+        const lat2 = Math.asin(
+          Math.sin(lat1) * Math.cos(distance / R) +
+            Math.cos(lat1) * Math.sin(distance / R) * Math.cos(brng)
+        );
+        const lon2 =
+          lon1 +
+          Math.atan2(
+            Math.sin(brng) * Math.sin(distance / R) * Math.cos(lat1),
+            Math.cos(distance / R) - Math.sin(lat1) * Math.sin(lat2)
+          );
+
+        const newLatitude = (lat2 * 180) / Math.PI;
+        const newLongitude = (lon2 * 180) / Math.PI;
+
+        // --- Vertical Movement ---
+        const verticalSpeedFps = verticalSpeed / 60; // fpm to fps
+        const dAlt = verticalSpeedFps * dt;
+        const newAltitude = altitude + dAlt;
+
+        const newPosition: Partial<GPSPosition> = {
+          latitude: newLatitude,
+          longitude: newLongitude,
+          altitude: newAltitude,
+        };
+
+        onPositionChange(newPosition);
+
+        // Also send the full updated position to the server
+        const fullNewPosition = {
+          ...position,
+          ...newPosition,
+          timestamp: Date.now(),
+        };
+        updatePosition(fullNewPosition).catch((err) => {
+          console.error('Failed to auto-update position while flying:', err);
+          // Stop flying if there's a persistent error
+          setIsFlying(false);
+        });
+      }, 250);
+    } else {
+      if (flightIntervalRef.current) {
+        clearInterval(flightIntervalRef.current);
+        flightIntervalRef.current = null;
+      }
+    }
+
+    return () => {
+      if (flightIntervalRef.current) {
+        clearInterval(flightIntervalRef.current);
+      }
+    };
+  }, [isFlying, position, onPositionChange]);
 
   return (
     <div className="position-control">
@@ -37,7 +115,7 @@ export default function PositionControl({
             step="0.0001"
             value={position.latitude.toFixed(4)}
             onChange={(e) => handleChange('latitude', parseFloat(e.target.value))}
-            disabled={disabled}
+            disabled={disabled || isFlying}
           />
           <span className="unit">°</span>
         </div>
@@ -52,7 +130,7 @@ export default function PositionControl({
             step="0.0001"
             value={position.longitude.toFixed(4)}
             onChange={(e) => handleChange('longitude', parseFloat(e.target.value))}
-            disabled={disabled}
+            disabled={disabled || isFlying}
           />
           <span className="unit">°</span>
         </div>
@@ -67,7 +145,7 @@ export default function PositionControl({
             step="100"
             value={position.altitude}
             onChange={(e) => handleChange('altitude', parseInt(e.target.value))}
-            disabled={disabled}
+            disabled={disabled || isFlying}
           />
           <span className="unit">ft MSL</span>
         </div>
@@ -116,6 +194,15 @@ export default function PositionControl({
           />
           <span className="unit">fpm</span>
         </div>
+      </div>
+
+      <div className="fly-control">
+        <button onClick={handleFlyToggle} disabled={disabled} className="btn btn-fly">
+          {isFlying ? 'Stop' : 'Fly'}
+        </button>
+        <p className="help-text-small">
+          Continuously updates position based on heading and speed.
+        </p>
       </div>
 
       <div className="help-text">
