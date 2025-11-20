@@ -4,11 +4,11 @@
   "description": "Simulate an imaginary flight's location to feed into EFBs.",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "concurrently --names \"SERVER,CLIENT\" --prefix-colors \"blue,green\" \"npm run server\" \"npm run client\"",
+    "client": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "server": "tsx server/index.ts",
-    "dev:all": "npm run server & npm run dev"
+    "server": "tsx server/index.ts"
   },
   "repository": {
     "type": "git",
@@ -29,6 +29,7 @@
     "@types/react": "^19.2.6",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.1.1",
+    "concurrently": "^9.2.1",
     "tsx": "^4.20.6",
     "typescript": "^5.9.3",
     "vite": "^7.2.2"
