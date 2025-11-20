@@ -6,13 +6,13 @@
 
 import { GPSPosition } from '../types/gps';
 
-const API_BASE_URL = 'http://localhost:3001/api/gps';
+const API_BASE_URL = 'http://localhost:5001/api/gps';
 
 export interface ServerStatus {
   isRunning: boolean;
   config: {
     port: number;
-    broadcastAddress: string;
+    targetIP: string;
     updateRate: number;
   };
   currentPosition: GPSPosition | null;
@@ -20,7 +20,7 @@ export interface ServerStatus {
 
 export interface ServerConfig {
   port?: number;
-  broadcastAddress?: string;
+  targetIP?: string;
   updateRate?: number;
 }
 

@@ -4,8 +4,8 @@
  * Controls for starting/stopping the GPS data server
  */
 
-import React, { useState, useEffect } from 'react';
-import { getServerStatus, startServer, stopServer, updatePosition } from '../services/gpsApi';
+import { useState, useEffect } from 'react';
+import { getServerStatus, startServer, stopServer, updatePosition, updateConfig } from '../services/gpsApi';
 import { GPSPosition } from '../types/gps';
 
 interface ServerControlProps {
@@ -21,6 +21,8 @@ export default function ServerControl({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState<string>('');
+  const [targetIP, setTargetIP] = useState<string>('');
+  const [isEditing, setIsEditing] = useState(false);
 
   // Poll server status
   useEffect(() => {
@@ -28,6 +30,10 @@ export default function ServerControl({
       try {
         const status = await getServerStatus();
         setIsRunning(status.isRunning);
+        // Only update targetIP from server if user is not currently editing
+        if (!isEditing) {
+          setTargetIP(status.config.targetIP || '');
+        }
         onServerStatusChange(status.isRunning);
       } catch (err) {
         // Server might not be running
@@ -39,7 +45,7 @@ export default function ServerControl({
     const interval = setInterval(checkStatus, 2000);
 
     return () => clearInterval(interval);
-  }, [onServerStatusChange]);
+  }, [onServerStatusChange, isEditing]);
 
   const handleStart = async () => {
     setIsLoading(true);
@@ -90,6 +96,34 @@ export default function ServerControl({
     }
   };
 
+  const handleSetTargetIP = async () => {
+    // Capture the current value immediately
+    const ipToSet = targetIP.trim();
+
+    console.log('Setting IP:', ipToSet); // Debug log
+
+    if (!ipToSet) {
+      setError('Please enter a target IP address');
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+    try {
+      console.log('Calling updateConfig with:', { targetIP: ipToSet }); // Debug log
+      await updateConfig({ targetIP: ipToSet });
+      setIsEditing(false);
+      setStatusMessage('Target IP set successfully');
+      setTimeout(() => setStatusMessage(''), 3000);
+    } catch (err) {
+      console.error('Error setting IP:', err); // Debug log
+      setError(err instanceof Error ? err.message : 'Failed to set target IP');
+      setIsEditing(false);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <div className="server-control">
       <h3>GPS Server Control</h3>
@@ -101,10 +135,42 @@ export default function ServerControl({
         </span>
       </div>
 
+      <div className="ip-config">
+        <label htmlFor="targetIP">ForeFlight Device IP</label>
+        <div className="ip-input-group">
+          <input
+            id="targetIP"
+            type="text"
+            placeholder="192.168.1.100"
+            value={targetIP}
+            onChange={(e) => {
+              setTargetIP(e.target.value);
+              setIsEditing(true);
+            }}
+            onFocus={() => setIsEditing(true)}
+            disabled={isRunning}
+          />
+          <button
+            onMouseDown={(e) => {
+              // Prevent blur event on input when clicking button
+              e.preventDefault();
+            }}
+            onClick={handleSetTargetIP}
+            disabled={isLoading || isRunning}
+            className="btn btn-set-ip"
+          >
+            Set IP
+          </button>
+        </div>
+        <p className="help-text-small">
+          Find your iPad&apos;s IP in Settings &gt; Wi-Fi &gt; (i) icon
+        </p>
+      </div>
+
       <div className="button-group">
         <button
           onClick={handleStart}
-          disabled={isLoading || isRunning}
+          disabled={isLoading || isRunning || !targetIP}
           className="btn btn-primary"
         >
           {isLoading && !isRunning ? 'Starting...' : 'Start Server'}
@@ -136,14 +202,16 @@ export default function ServerControl({
           <strong>Protocol:</strong> GDL 90
         </p>
         <p>
+          <strong>Target IP:</strong> {targetIP || 'Not set'}
+        </p>
+        <p>
           <strong>UDP Port:</strong> 4000
         </p>
         <p>
           <strong>Update Rate:</strong> 1 Hz
         </p>
         <p className="help-text">
-          Configure your EFB (e.g., ForeFlight) to receive GPS data from this device's IP
-          address on UDP port 4000.
+          The app will send GPS data directly to your ForeFlight device at the specified IP address.
         </p>
       </div>
     </div>

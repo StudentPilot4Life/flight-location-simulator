@@ -15,7 +15,7 @@ import {
 
 export interface GPSServerConfig {
   port: number;
-  broadcastAddress: string;
+  targetIP: string; // Direct IP address to send to (e.g., ForeFlight device)
   updateRate: number; // Updates per second (1-10 Hz)
 }
 
@@ -30,7 +30,7 @@ export class GPSDataServer {
   constructor(config: Partial<GPSServerConfig> = {}) {
     this.config = {
       port: config.port ?? 4000,
-      broadcastAddress: config.broadcastAddress ?? '255.255.255.255',
+      targetIP: config.targetIP ?? '',
       updateRate: config.updateRate ?? 1, // 1 Hz default
     };
   }
@@ -41,6 +41,10 @@ export class GPSDataServer {
   async start(): Promise<void> {
     if (this.isRunning) {
       throw new Error('GPS server is already running');
+    }
+
+    if (!this.config.targetIP) {
+      throw new Error('Target IP address is required. Please set the ForeFlight device IP.');
     }
 
     return new Promise((resolve, reject) => {
@@ -56,14 +60,13 @@ export class GPSDataServer {
         if (!this.socket) return;
 
         try {
-          this.socket.setBroadcast(true);
           this.isRunning = true;
 
-          console.log(
-            `GPS Data Server started on UDP port ${this.config.port}`
-          );
-          console.log(`Broadcasting to ${this.config.broadcastAddress}`);
-          console.log(`Update rate: ${this.config.updateRate} Hz`);
+          console.log('\nGPS Data Server Configuration:');
+          console.log(`  Target IP: ${this.config.targetIP}`);
+          console.log(`  Target Port: ${this.config.port}`);
+          console.log(`  Update rate: ${this.config.updateRate} Hz`);
+          console.log('\nSending GDL 90 data directly to ForeFlight device.\n');
 
           // Send heartbeat every second (as per GDL 90 spec)
           this.startHeartbeat();
@@ -219,7 +222,7 @@ export class GPSDataServer {
     this.socket.send(
       message,
       this.config.port,
-      this.config.broadcastAddress,
+      this.config.targetIP,
       (err) => {
         if (err) {
           console.error('Error sending message:', err);

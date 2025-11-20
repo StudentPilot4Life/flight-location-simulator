@@ -134,9 +134,11 @@ router.post('/position', (req, res) => {
  */
 router.put('/config', (req, res) => {
   const server = getGPSServerInstance();
-  const { port, broadcastAddress, updateRate } = req.body;
+  console.log('Received config update request:', req.body); // Debug log
+  const { port, targetIP, updateRate } = req.body;
 
   const updates: any = {};
+  console.log('Extracted values - port:', port, 'targetIP:', targetIP, 'updateRate:', updateRate); // Debug log
 
   if (port !== undefined) {
     if (typeof port !== 'number' || port < 1 || port > 65535) {
@@ -147,11 +149,22 @@ router.put('/config', (req, res) => {
     updates.port = port;
   }
 
-  if (broadcastAddress !== undefined) {
-    if (typeof broadcastAddress !== 'string') {
-      return res.status(400).json({ error: 'Broadcast address must be a string' });
+  if (targetIP !== undefined) {
+    console.log('Processing targetIP:', targetIP, 'type:', typeof targetIP); // Debug log
+    if (typeof targetIP !== 'string') {
+      console.log('Target IP is not a string!'); // Debug log
+      return res.status(400).json({ error: 'Target IP must be a string' });
     }
-    updates.broadcastAddress = broadcastAddress;
+    // Basic IP validation (allow empty string to clear)
+    if (targetIP.length > 0) {
+      const ipPattern = /^(\d{1,3}\.){3}\d{1,3}$/;
+      if (!ipPattern.test(targetIP)) {
+        console.log('Target IP failed regex validation'); // Debug log
+        return res.status(400).json({ error: 'Invalid IP address format. Expected format: 192.168.1.100' });
+      }
+    }
+    console.log('Adding targetIP to updates:', targetIP); // Debug log
+    updates.targetIP = targetIP;
   }
 
   if (updateRate !== undefined) {
@@ -163,7 +176,9 @@ router.put('/config', (req, res) => {
     updates.updateRate = updateRate;
   }
 
+  console.log('Final updates object:', updates, 'keys:', Object.keys(updates)); // Debug log
   if (Object.keys(updates).length === 0) {
+    console.log('ERROR: No updates in object, returning error'); // Debug log
     return res.status(400).json({ error: 'No valid configuration provided' });
   }
 
