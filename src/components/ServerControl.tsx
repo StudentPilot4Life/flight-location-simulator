@@ -199,19 +199,19 @@ export default function ServerControl({
       <div className="info-box">
         <h4>Connection Info</h4>
         <p>
-          <strong>Protocol:</strong> GDL 90
+          <strong>Protocol:</strong> XGPS (ForeFlight Network GPS)
         </p>
         <p>
           <strong>Target IP:</strong> {targetIP || 'Not set'}
         </p>
         <p>
-          <strong>UDP Port:</strong> 4000
+          <strong>UDP Port:</strong> 49002
         </p>
         <p>
           <strong>Update Rate:</strong> 1 Hz
         </p>
         <p className="help-text">
-          The app will send GPS data directly to your ForeFlight device at the specified IP address.
+          The app will send GPS data to ForeFlight using the XGPS protocol. Enable the simulator in ForeFlight → More → Devices.
         </p>
       </div>
     </div>

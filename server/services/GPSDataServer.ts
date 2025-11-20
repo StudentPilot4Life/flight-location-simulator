@@ -1,22 +1,19 @@
 /**
  * GPS Data Server
  *
- * Broadcasts GPS position data using the GDL 90 protocol over UDP.
- * This allows EFBs like ForeFlight to receive simulated position data.
+ * Broadcasts GPS position data using ForeFlight's XGPS protocol over UDP.
+ * This allows ForeFlight to receive simulated position data over the network.
  */
 
 import dgram from 'dgram';
 import { GPSPosition } from '../../src/types/gps.js';
-import {
-  createHeartbeatMessage,
-  createOwnshipReport,
-  createGeometricAltitude,
-} from '../utils/gdl90Encoder.js';
+import { createXGPSMessage } from '../utils/xgpsEncoder.js';
 
 export interface GPSServerConfig {
   port: number;
   targetIP: string; // Direct IP address to send to (e.g., ForeFlight device)
   updateRate: number; // Updates per second (1-10 Hz)
+  simulatorName: string; // Name that appears in ForeFlight
 }
 
 export class GPSDataServer {
@@ -24,14 +21,24 @@ export class GPSDataServer {
   private config: GPSServerConfig;
   private isRunning = false;
   private currentPosition: GPSPosition | null = null;
-  private heartbeatInterval: NodeJS.Timeout | null = null;
   private positionInterval: NodeJS.Timeout | null = null;
 
   constructor(config: Partial<GPSServerConfig> = {}) {
     this.config = {
-      port: config.port ?? 4000,
+      port: config.port ?? 49002, // ForeFlight XGPS port
       targetIP: config.targetIP ?? '',
-      updateRate: config.updateRate ?? 1, // 1 Hz default
+      updateRate: config.updateRate ?? 1, // 1 Hz as per ForeFlight spec
+      simulatorName: config.simulatorName ?? 'FlightSim',
+    };
+    // Set a default position (center of US) so device appears immediately
+    this.currentPosition = {
+      latitude: 39.8283,
+      longitude: -98.5795,
+      altitude: 5000,
+      heading: 0,
+      groundSpeed: 0,
+      verticalSpeed: 0,
+      timestamp: Date.now(),
     };
   }
 
@@ -48,7 +55,7 @@ export class GPSDataServer {
     }
 
     return new Promise((resolve, reject) => {
-      this.socket = dgram.createSocket('udp4');
+      this.socket = dgram.createSocket({ type: 'udp4', reuseAddr: true });
 
       this.socket.on('error', (err) => {
         console.error('GPS server error:', err);
@@ -56,20 +63,32 @@ export class GPSDataServer {
         reject(err);
       });
 
+      // Bind to any available port
       this.socket.bind(() => {
         if (!this.socket) return;
 
         try {
+          // Enable broadcast mode
+          this.socket.setBroadcast(true);
+
           this.isRunning = true;
 
-          console.log('\nGPS Data Server Configuration:');
+          const address = this.socket.address();
+          console.log('\n=== ForeFlight GPS Server Started ===');
+          console.log(`  Protocol: XGPS (ForeFlight Network GPS)`);
+          console.log(`  Socket bound to: ${address.address}:${address.port}`);
           console.log(`  Target IP: ${this.config.targetIP}`);
-          console.log(`  Target Port: ${this.config.port}`);
+          console.log(`  Target Port: ${this.config.port} (ForeFlight XGPS port)`);
           console.log(`  Update rate: ${this.config.updateRate} Hz`);
-          console.log('\nSending GDL 90 data directly to ForeFlight device.\n');
+          console.log(`  Simulator name: ${this.config.simulatorName}`);
+          console.log('\nForeFlight Setup:');
+          console.log('  1. Ensure your iPad and PC are on the same WiFi network');
+          console.log('  2. Open ForeFlight → More → Devices');
+          console.log('  3. Enable the simulator device that appears');
+          console.log('=========================================\n');
 
-          // Send heartbeat every second (as per GDL 90 spec)
-          this.startHeartbeat();
+          // Start position broadcasts immediately (1 Hz as per ForeFlight spec)
+          this.startPositionBroadcast();
 
           resolve();
         } catch (err) {
@@ -87,11 +106,6 @@ export class GPSDataServer {
       return;
     }
 
-    if (this.heartbeatInterval) {
-      clearInterval(this.heartbeatInterval);
-      this.heartbeatInterval = null;
-    }
-
     if (this.positionInterval) {
       clearInterval(this.positionInterval);
       this.positionInterval = null;
@@ -103,7 +117,7 @@ export class GPSDataServer {
     }
 
     this.isRunning = false;
-    console.log('GPS Data Server stopped');
+    console.log('ForeFlight GPS Server stopped');
   }
 
   /**
@@ -111,11 +125,7 @@ export class GPSDataServer {
    */
   updatePosition(position: GPSPosition): void {
     this.currentPosition = position;
-
-    // If not already broadcasting position updates, start
-    if (this.isRunning && !this.positionInterval) {
-      this.startPositionBroadcast();
-    }
+    // Position interval is already running, it will pick up the new position automatically
   }
 
   /**
@@ -158,19 +168,6 @@ export class GPSDataServer {
   }
 
   /**
-   * Start sending heartbeat messages
-   */
-  private startHeartbeat(): void {
-    // Send heartbeat every 1 second (GDL 90 specification)
-    this.heartbeatInterval = setInterval(() => {
-      this.sendHeartbeat();
-    }, 1000);
-
-    // Send initial heartbeat immediately
-    this.sendHeartbeat();
-  }
-
-  /**
    * Start broadcasting position updates
    */
   private startPositionBroadcast(): void {
@@ -189,28 +186,14 @@ export class GPSDataServer {
   }
 
   /**
-   * Send heartbeat message
-   */
-  private sendHeartbeat(): void {
-    if (!this.socket || !this.isRunning) return;
-
-    const message = createHeartbeatMessage();
-    this.sendMessage(message);
-  }
-
-  /**
-   * Send position data
+   * Send position data using XGPS protocol
    */
   private sendPosition(position: GPSPosition): void {
     if (!this.socket || !this.isRunning) return;
 
-    // Send ownship report
-    const ownshipReport = createOwnshipReport(position);
-    this.sendMessage(ownshipReport);
-
-    // Send geometric altitude
-    const geometricAlt = createGeometricAltitude(position.altitude);
-    this.sendMessage(geometricAlt);
+    // Send XGPS message
+    const xgpsMessage = createXGPSMessage(position, this.config.simulatorName);
+    this.sendMessage(xgpsMessage);
   }
 
   /**
@@ -225,7 +208,14 @@ export class GPSDataServer {
       this.config.targetIP,
       (err) => {
         if (err) {
-          console.error('Error sending message:', err);
+          console.error('Error sending UDP packet:', err);
+          console.error(`  Target: ${this.config.targetIP}:${this.config.port}`);
+          console.error(`  Message size: ${message.length} bytes`);
+        } else {
+          // Log successful sends (only occasionally to avoid spam)
+          if (Math.random() < 0.1) { // 10% of sends
+            console.log(`✓ UDP packet sent to ${this.config.targetIP}:${this.config.port} (${message.length} bytes)`);
+          }
         }
       }
     );
