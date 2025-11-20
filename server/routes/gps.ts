@@ -35,6 +35,14 @@ router.post('/start', async (req, res) => {
   }
 
   try {
+    // Accept initial position from the request body
+    const initialPosition: GPSPosition | undefined = req.body.position;
+
+    // If position is provided, update it before starting
+    if (initialPosition) {
+      server.updatePosition(initialPosition);
+    }
+
     await server.start();
     res.json({
       message: 'GPS server started successfully',

@@ -38,9 +38,13 @@ export async function getServerStatus(): Promise<ServerStatus> {
 /**
  * Start the GPS data server
  */
-export async function startServer(): Promise<void> {
+export async function startServer(initialPosition?: GPSPosition): Promise<void> {
   const response = await fetch(`${API_BASE_URL}/start`, {
     method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ position: initialPosition }),
   });
   if (!response.ok) {
     const error = await response.json();

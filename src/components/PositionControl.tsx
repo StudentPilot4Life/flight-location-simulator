@@ -12,12 +12,18 @@ interface PositionControlProps {
   position: GPSPosition;
   onPositionChange: (position: Partial<GPSPosition>) => void;
   disabled?: boolean;
+  onFlyingChange?: (isFlying: boolean) => void;
+  onCenterRequest?: () => void;
+  followMode?: boolean;
 }
 
 export default function PositionControl({
   position,
   onPositionChange,
   disabled = false,
+  onFlyingChange,
+  onCenterRequest,
+  followMode = false,
 }: PositionControlProps) {
   const [isFlying, setIsFlying] = useState(false);
   const flightIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -27,7 +33,19 @@ export default function PositionControl({
   };
 
   const handleFlyToggle = () => {
-    setIsFlying((prev) => !prev);
+    setIsFlying((prev) => {
+      const newValue = !prev;
+      if (onFlyingChange) {
+        onFlyingChange(newValue);
+      }
+      return newValue;
+    });
+  };
+
+  const handleCenterClick = () => {
+    if (onCenterRequest) {
+      onCenterRequest();
+    }
   };
 
   useEffect(() => {
@@ -143,7 +161,7 @@ export default function PositionControl({
             min="0"
             max="50000"
             step="100"
-            value={position.altitude}
+            value={Math.round(position.altitude)}
             onChange={(e) => handleChange('altitude', parseInt(e.target.value))}
             disabled={disabled || isFlying}
           />
@@ -197,9 +215,19 @@ export default function PositionControl({
       </div>
 
       <div className="fly-control">
-        <button onClick={handleFlyToggle} disabled={disabled} className="btn btn-fly">
-          {isFlying ? 'Stop' : 'Fly'}
-        </button>
+        <div>
+          <button onClick={handleFlyToggle} disabled={disabled} className="btn btn-fly">
+            {isFlying ? 'Stop' : 'Fly'}
+          </button>
+          <button
+            onClick={handleCenterClick}
+            disabled={disabled}
+            className={`btn btn-center ${followMode ? 'active' : ''}`}
+            title={isFlying ? (followMode ? 'Following aircraft' : 'Click to follow aircraft') : 'Center aircraft on map'}
+          >
+            📍
+          </button>
+        </div>
         <p className="help-text-small">
           Continuously updates position based on heading and speed.
         </p>

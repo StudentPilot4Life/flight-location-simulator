@@ -51,7 +51,7 @@ export default function ServerControl({
     setIsLoading(true);
     setError(null);
     try {
-      await startServer();
+      await startServer(currentPosition);
       setIsRunning(true);
       setStatusMessage('GPS server started successfully');
       setTimeout(() => setStatusMessage(''), 3000);

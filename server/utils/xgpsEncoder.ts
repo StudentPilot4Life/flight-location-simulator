@@ -26,11 +26,11 @@ function knotsToMetersPerSecond(knots: number): number {
  * Format: XGPS<name>,<lon>,<lat>,<alt_m>,<track_deg>,<speed_m/s>
  */
 export function createXGPSMessage(position: GPSPosition, simulatorName: string = 'FlightSim'): Buffer {
-  const altitudeMeters = feetToMeters(position.altitude);
+  const altitudeMeters = Math.round(feetToMeters(position.altitude));
   const speedMps = knotsToMetersPerSecond(position.groundSpeed);
 
   // Format: XGPS<name>,<lon>,<lat>,<alt_m>,<track_deg>,<speed_m/s>
-  const message = `XGPS${simulatorName},${position.longitude.toFixed(8)},${position.latitude.toFixed(8)},${altitudeMeters.toFixed(1)},${position.heading.toFixed(2)},${speedMps.toFixed(1)}`;
+  const message = `XGPS${simulatorName},${position.longitude.toFixed(8)},${position.latitude.toFixed(8)},${altitudeMeters},${position.heading.toFixed(2)},${speedMps.toFixed(1)}`;
 
   return Buffer.from(message, 'utf-8');
 }

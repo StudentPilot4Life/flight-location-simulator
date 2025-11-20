@@ -34,6 +34,7 @@ interface MapViewProps {
   position: { lat: number; lng: number };
   heading?: number;
   onPositionChange: (lat: number, lng: number) => void;
+  followMode?: boolean;
 }
 
 /**
@@ -55,7 +56,13 @@ function MapClickHandler({
 /**
  * Component to update map view when position changes
  */
-function MapViewController({ position }: { position: { lat: number; lng: number } }) {
+function MapViewController({
+  position,
+  followMode
+}: {
+  position: { lat: number; lng: number };
+  followMode?: boolean;
+}) {
   const map = useMap();
   const isFirstRender = useRef(true);
 
@@ -64,8 +71,11 @@ function MapViewController({ position }: { position: { lat: number; lng: number 
       // On first render, fly to position
       map.setView([position.lat, position.lng], map.getZoom());
       isFirstRender.current = false;
+    } else if (followMode) {
+      // If follow mode is enabled, smoothly pan to the new position
+      map.panTo([position.lat, position.lng], { animate: true, duration: 0.5 });
     }
-  }, [position, map]);
+  }, [position, map, followMode]);
 
   return null;
 }
@@ -84,9 +94,12 @@ function AirplaneMarker({
 
   useEffect(() => {
     if (markerRef.current) {
+      // Subtract 45 degrees to align the airplane emoji correctly
+      // The emoji's natural orientation is northeast (45°)
+      const adjustedHeading = heading - 45;
       const icon = L.divIcon({
         className: 'airplane-marker',
-        html: `<div style="transform: rotate(${heading}deg); font-size: 24px;">✈️</div>`,
+        html: `<div style="transform: rotate(${adjustedHeading}deg); font-size: 24px;">✈️</div>`,
         iconSize: [30, 30],
         iconAnchor: [15, 15],
       });
@@ -97,7 +110,7 @@ function AirplaneMarker({
   return <Marker ref={markerRef} position={[position.lat, position.lng]} icon={airplaneIcon} />;
 }
 
-export default function MapView({ position, heading = 0, onPositionChange }: MapViewProps) {
+export default function MapView({ position, heading = 0, onPositionChange, followMode = false }: MapViewProps) {
   return (
     <div className="map-container">
       <MapContainer
@@ -110,7 +123,7 @@ export default function MapView({ position, heading = 0, onPositionChange }: Map
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
         <MapClickHandler onPositionChange={onPositionChange} />
-        <MapViewController position={position} />
+        <MapViewController position={position} followMode={followMode} />
         <AirplaneMarker position={position} heading={heading} />
       </MapContainer>
     </div>

@@ -30,16 +30,7 @@ export class GPSDataServer {
       updateRate: config.updateRate ?? 1, // 1 Hz as per ForeFlight spec
       simulatorName: config.simulatorName ?? 'FlightSim',
     };
-    // Set a default position (center of US) so device appears immediately
-    this.currentPosition = {
-      latitude: 39.8283,
-      longitude: -98.5795,
-      altitude: 5000,
-      heading: 0,
-      groundSpeed: 0,
-      verticalSpeed: 0,
-      timestamp: Date.now(),
-    };
+    // currentPosition starts as null and will be set when the server starts
   }
 
   /**
