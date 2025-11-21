@@ -71,10 +71,6 @@ flight-location-simulator/
 
 ```
 
-## Roadmap
-
-See [roadmap.md](roadmap.md) for the detailed product roadmap and planned features.
-
 ## License
 
-ISC
+MIT
