@@ -28,7 +28,7 @@ export class GPSDataServer {
       port: config.port ?? 49002, // ForeFlight XGPS port
       targetIP: config.targetIP ?? '',
       updateRate: config.updateRate ?? 1, // 1 Hz as per ForeFlight spec
-      simulatorName: config.simulatorName ?? 'FlightSim',
+      simulatorName: config.simulatorName ?? 'SP4L Location Simulator',
     };
     // currentPosition starts as null and will be set when the server starts
   }

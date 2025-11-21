@@ -25,7 +25,7 @@ function knotsToMetersPerSecond(knots: number): number {
  * Create XGPS GPS message
  * Format: XGPS<name>,<lon>,<lat>,<alt_m>,<track_deg>,<speed_m/s>
  */
-export function createXGPSMessage(position: GPSPosition, simulatorName: string = 'FlightSim'): Buffer {
+export function createXGPSMessage(position: GPSPosition, simulatorName: string = 'SP4L Location Simulator'): Buffer {
   const altitudeMeters = Math.round(feetToMeters(position.altitude));
   const speedMps = knotsToMetersPerSecond(position.groundSpeed);
 
@@ -48,7 +48,7 @@ export function createXTRAFFICMessage(
   track: number,
   speedKnots: number,
   callsign: string = 'SIM',
-  simulatorName: string = 'FlightSim'
+  simulatorName: string = 'SP4L Location Simulator'
 ): Buffer {
   const airborne = altitudeFeet > 0 ? 1 : 0;
 
@@ -65,7 +65,7 @@ export function createXATTMessage(
   heading: number,
   pitch: number = 0,
   roll: number = 0,
-  simulatorName: string = 'FlightSim'
+  simulatorName: string = 'SP4L Location Simulator'
 ): Buffer {
   const message = `XATT${simulatorName},${heading.toFixed(1)},${pitch.toFixed(1)},${roll.toFixed(1)}`;
 
